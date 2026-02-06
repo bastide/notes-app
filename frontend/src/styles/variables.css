@@ -1,0 +1,72 @@
+/**
+ * CSS Variables (Design Tokens)
+ * 
+ * Defines the design system for the application including:
+ * - Color palette
+ * - Typography
+ * - Spacing
+ * - Shadows and effects
+ */
+
+:root {
+  /* Primary Colors */
+  --primary-color: #1976d2;
+  --primary-hover: #1565c0;
+  --primary-light: #e3f2fd;
+  
+  /* Secondary Colors */
+  --secondary-color: #26a69a;
+  --secondary-hover: #00897b;
+  
+  /* Status Colors */
+  --danger-color: #c10015;
+  --danger-hover: #a00012;
+  --warning-color: #ff9800;
+  --success-color: #4caf50;
+  --info-color: #2196f3;
+  
+  /* Neutral Colors */
+  --text-color: #333;
+  --text-light: #666;
+  --text-lighter: #999;
+  --border-color: #ddd;
+  --bg-color: #fff;
+  --bg-light: #f5f5f5;
+  --bg-lighter: #fafafa;
+  
+  /* Typography */
+  --font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-size-base: 16px;
+  --font-size-sm: 14px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.2);
+  
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  
+  /* Z-index layers */
+  --z-dropdown: 1000;
+  --z-modal: 2000;
+  --z-toast: 3000;
+}

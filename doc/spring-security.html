@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spring Security - Sécurisation des applications web</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reset.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/theme/moon.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/plugin/highlight/monokai.css">
+    <style>
+        .reveal h1, .reveal h2, .reveal h3 { text-transform: none; }
+        .reveal pre { font-size: 0.5em; width: 100%; }
+        .reveal code { max-height: 500px; }
+        .reveal .slides section .fragment.highlight-current-blue { opacity: 1; }
+        .reveal .slides section .fragment.highlight-current-blue.current-fragment { color: #42affa; }
+        .two-columns { display: flex; gap: 20px; }
+        .two-columns > div { flex: 1; }
+        .vulnerability { color: #ff6b6b; font-weight: bold; }
+        .security { color: #51cf66; font-weight: bold; }
+        .small-text { font-size: 0.8em; }
+        .architecture-diagram {
+            background: #2d2d2d;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .flow-step {
+            background: #1a1a1a;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-left: 4px solid #42affa;
+            border-radius: 4px;
+        }
+        .endpoint {
+            color: #ffd700;
+            font-family: monospace;
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- Slide de titre -->
+            <section>
+                <h1>Spring Security</h1>
+                <h3>Sécurisation des applications web Java</h3>
+                <p style="margin-top: 50px;">Formation pour élèves ingénieurs</p>
+            </section>
+
+            <!-- PARTIE 1: PROBLÉMATIQUE GÉNÉRALE DE SÉCURITÉ -->
+
+            <section>
+                <h2>Plan de la présentation</h2>
+                <ol>
+                    <li>Problématique de la sécurité web</li>
+                    <li>Introduction à Spring Security</li>
+                    <li>Architecture et composants</li>
+                    <li>Utilisateurs et rôles</li>
+                    <li>Authentification JWT</li>
+                    <li>Mise en pratique</li>
+                </ol>
+            </section>
+
+            <!-- Partie 1: Problématique de sécurité -->
+            <section>
+                <section>
+                    <h2>1. Problématique de sécurité</h2>
+                    <h3>Les enjeux de la sécurité web</h3>
+                </section>
+
+                <section>
+                    <h3>Menaces principales</h3>
+                    <div class="two-columns">
+                        <div>
+                            <h4 class="vulnerability">Vulnérabilités courantes</h4>
+                            <ul class="small-text">
+                                <li><strong>Injection SQL</strong><br/>Manipulation de requêtes BD</li>
+                                <li><strong>XSS (Cross-Site Scripting)</strong><br/>Injection de scripts malveillants</li>
+                                <li><strong>CSRF</strong><br/>Falsification de requêtes</li>
+                                <li><strong>Broken Authentication</strong><br/>Gestion d'identité défaillante</li>
+                                <li><strong>Exposition de données sensibles</strong><br/>Fuites d'informations</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="security">Impact potentiel</h4>
+                            <ul class="small-text">
+                                <li>Vol de données utilisateurs</li>
+                                <li>Usurpation d'identité</li>
+                                <li>Prise de contrôle de comptes</li>
+                                <li>Compromission du système</li>
+                                <li>Atteinte à la réputation</li>
+                                <li>Sanctions légales (RGPD)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Concepts clés de sécurité</h3>
+                    <div class="architecture-diagram">
+                        <h4 style="color: #42affa;">Authentification vs Autorisation</h4>
+                        <div class="flow-step">
+                            <strong>Authentification</strong> : "Qui êtes-vous ?"<br/>
+                            <span class="small-text">→ Vérifier l'identité (login/password, certificat, biométrie...)</span>
+                        </div>
+                        <div class="flow-step">
+                            <strong>Autorisation</strong> : "Que pouvez-vous faire ?"<br/>
+                            <span class="small-text">→ Contrôler les permissions (rôles, droits d'accès...)</span>
+                        </div>
+                        <div class="flow-step">
+                            <strong>Confidentialité</strong> : Protection des données sensibles<br/>
+                            <span class="small-text">→ Chiffrement, hachage des mots de passe</span>
+                        </div>
+                        <div class="flow-step">
+                            <strong>Intégrité</strong> : Garantir la non-altération<br/>
+                            <span class="small-text">→ Signatures, tokens signés</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Architecture traditionnelle (sessions)</h3>
+                    <pre><code class="language-plaintext" data-trim>
+┌─────────┐           ┌─────────────┐           ┌──────────┐
+│ Client  │           │   Serveur   │           │  Session │
+│ (Web)   │           │  Web App    │           │  Store   │
+└────┬────┘           └──────┬──────┘           └─────┬────┘
+     │                       │                        │
+     │ POST /login           │                        │
+     │ (user/pass)           │                        │
+     ├──────────────────────►│                        │
+     │                       │                        │
+     │                       │ Vérification           │
+     │                       │ identifiants           │
+     │                       │                        │
+     │                       │ Créer session          │
+     │                       ├───────────────────────►│
+     │                       │                        │
+     │ Set-Cookie:           │                        │
+     │ SESSIONID=abc123      │                        │
+     │◄──────────────────────┤                        │
+     │                       │                        │
+     │ GET /api/data         │                        │
+     │ Cookie: SESSIONID     │                        │
+     ├──────────────────────►│                        │
+     │                       │ Valider session        │
+     │                       ├───────────────────────►│
+     │                       │                        │
+     │                       │ Session valide         │
+     │                       │◄───────────────────────┤
+     │ Données protégées     │                        │
+     │◄──────────────────────┤                        │
+                    </code></pre>
+                    <p class="small-text"><span class="vulnerability">Problème</span> : État côté serveur, difficile à scaler</p>
+                </section>
+
+                <section>
+                    <h3>Limitations des sessions traditionnelles</h3>
+                    <div class="small-text">
+                        <div class="flow-step">
+                            <strong>❌ État côté serveur (Stateful)</strong><br/>
+                            Le serveur doit stocker toutes les sessions actives en mémoire ou en base
+                        </div>
+                        <div class="flow-step">
+                            <strong>❌ Scalabilité horizontale difficile</strong><br/>
+                            Nécessite un partage de sessions entre serveurs (sticky sessions, Redis...)
+                        </div>
+                        <div class="flow-step">
+                            <strong>❌ Incompatible avec les architectures modernes</strong><br/>
+                            Microservices, applications mobiles, SPA (Single Page Applications)
+                        </div>
+                        <div class="flow-step">
+                            <strong>❌ CORS et Cross-Domain</strong><br/>
+                            Les cookies ont des limitations de sécurité cross-domain
+                        </div>
+                    </div>
+                    <p style="margin-top: 30px;" class="security"><strong>Solution moderne : JWT (JSON Web Tokens)</strong></p>
+                </section>
+
+                <section>
+                    <h3>Architecture moderne (JWT)</h3>
+                    <pre><code class="language-plaintext" data-trim>
+┌─────────┐           ┌─────────────┐
+│ Client  │           │   Serveur   │
+│ (Web)   │           │   Stateless │
+└────┬────┘           └──────┬──────┘
+     │                       │
+     │ POST /login           │
+     │ (user/pass)           │
+     ├──────────────────────►│
+     │                       │
+     │                       │ Vérification
+     │                       │ identifiants
+     │                       │
+     │ JWT Token             │ Génération JWT
+     │ eyJhbGc...            │ signé avec clé secrète
+     │◄──────────────────────┤
+     │                       │
+     │ Stockage local        │
+     │ (localStorage)        │
+     │                       │
+     │ GET /api/data         │
+     │ Authorization:        │
+     │ Bearer eyJhbGc...     │
+     ├──────────────────────►│
+     │                       │ Validation signature
+     │                       │ + expiration
+     │                       │ (pas de BD !)
+     │ Données protégées     │
+     │◄──────────────────────┤
+                    </code></pre>
+                    <p class="small-text"><span class="security">Avantage</span> : Sans état (stateless), scalable</p>
+                </section>
+            </section>
+
+            <!-- Partie 2: Introduction à Spring Security -->
+            <section>
+                <section>
+                    <h2>2. Introduction à Spring Security</h2>
+                    <h3>Framework de sécurité pour Java/Spring</h3>
+                </section>
+
+                <section>
+                    <h3>Qu'est-ce que Spring Security ?</h3>
+                    <div class="architecture-diagram">
+                        <p>Framework complet et extensible pour :</p>
+                        <div class="flow-step">
+                            <strong>✓ Authentification</strong><br/>
+                            Support de multiples mécanismes (formulaire, HTTP Basic, OAuth2, JWT...)
+                        </div>
+                        <div class="flow-step">
+                            <strong>✓ Autorisation</strong><br/>
+                            Contrôle d'accès basé sur les rôles (RBAC) et les permissions
+                        </div>
+                        <div class="flow-step">
+                            <strong>✓ Protection contre les attaques</strong><br/>
+                            CSRF, XSS, Session Fixation, Clickjacking...
+                        </div>
+                        <div class="flow-step">
+                            <strong>✓ Intégration Spring Boot</strong><br/>
+                            Configuration simplifiée avec auto-configuration
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Principes de fonctionnement</h3>
+                    <h4 class="security">Architecture à base de filtres</h4>
+                    <pre><code class="language-plaintext" data-trim>
+HTTP Request
+    ↓
+┌───────────────────────────────────────────┐
+│     Spring Security Filter Chain          │
+├───────────────────────────────────────────┤
+│ 1. SecurityContextPersistenceFilter       │ ← Restaure le contexte
+│ 2. LogoutFilter                           │ ← Gère la déconnexion
+│ 3. JwtAuthenticationFilter                │ ← Extrait et valide JWT
+│ 4. UsernamePasswordAuthenticationFilter   │ ← Gère le login
+│ 5. ExceptionTranslationFilter             │ ← Gère les erreurs
+│ 6. FilterSecurityInterceptor              │ ← Contrôle d'accès
+└───────────────────────────────────────────┘
+    ↓
+Controller (si autorisé)
+                    </code></pre>
+                    <p class="small-text">Chaque requête passe par cette chaîne de filtres</p>
+                </section>
+
+                <section>
+                    <h3>Composants principaux</h3>
+                    <div class="two-columns small-text">
+                        <div>
+                            <div class="flow-step">
+                                <strong>SecurityFilterChain</strong><br/>
+                                Configuration des règles de sécurité
+                            </div>
+                            <div class="flow-step">
+                                <strong>AuthenticationManager</strong><br/>
+                                Gère le processus d'authentification
+                            </div>
+                            <div class="flow-step">
+                                <strong>UserDetailsService</strong><br/>
+                                Charge les utilisateurs depuis la BD
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flow-step">
+                                <strong>PasswordEncoder</strong><br/>
+                                Encode/vérifie les mots de passe
+                            </div>
+                            <div class="flow-step">
+                                <strong>SecurityContext</strong><br/>
+                                Stocke l'authentification courante
+                            </div>
+                            <div class="flow-step">
+                                <strong>GrantedAuthority</strong><br/>
+                                Représente les permissions
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Partie 3: Architecture et configuration -->
+            <section>
+                <section>
+                    <h2>3. Architecture Spring Security</h2>
+                    <h3>Configuration dans notre projet</h3>
+                </section>
+
+                <section>
+                    <h3>SecurityConfig.java</h3>
+                    <p class="small-text">Classe centrale de configuration</p>
+                    <pre><code class="language-java" data-trim data-line-numbers="|1-3|5-6|8-13|15-23">
+@Configuration              // Bean de configuration Spring
+@EnableWebSecurity         // Active Spring Security
+@EnableMethodSecurity      // Active @PreAuthorize, @Secured...
+
+@Autowired
+private UserDetailsServiceImpl userDetailsService;
+
+@Bean
+public SecurityFilterChain securityFilterChain(HttpSecurity http)
+        throws Exception {
+    http
+        .csrf(csrf -> csrf.disable())
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+        // Gestion de session STATELESS (JWT)
+        .sessionManagement(session ->
+            session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+        )
+
+        // Configuration des autorisations
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers("/api/auth/**").permitAll()    // Public
+            .anyRequest().authenticated()                    // Protégé
+        );
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>Configuration détaillée</h3>
+                    <pre><code class="language-java" data-trim data-line-numbers="|1-2|4-6|8-12">
+// 1. Désactivation CSRF (non nécessaire pour JWT)
+.csrf(csrf -> csrf.disable())
+
+// 2. Configuration CORS pour le frontend
+.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+// 3. Point d'entrée pour les erreurs 401
+.exceptionHandling(exception ->
+    exception.authenticationEntryPoint(unauthorizedHandler)
+)
+
+// 4. Ajout du filtre JWT personnalisé
+http.addFilterBefore(
+    jwtAuthenticationFilter(),
+    UsernamePasswordAuthenticationFilter.class
+);
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>Endpoints publics vs protégés</h3>
+                    <div class="architecture-diagram small-text">
+                        <h4 style="color: #51cf66;">Endpoints publics (permitAll)</h4>
+                        <ul>
+                            <li><span class="endpoint">POST /api/auth/login</span> - Connexion</li>
+                            <li><span class="endpoint">GET /h2-console/**</span> - Console H2 (dev)</li>
+                            <li><span class="endpoint">GET /, /index.html, /assets/**</span> - Frontend</li>
+                        </ul>
+
+                        <h4 style="color: #ffd700; margin-top: 20px;">Endpoints protégés (authenticated)</h4>
+                        <ul>
+                            <li><span class="endpoint">GET /api/notes/**</span> - Gestion des notes</li>
+                            <li><span class="endpoint">GET /api/users/**</span> - Gestion utilisateurs (admin)</li>
+                        </ul>
+                    </div>
+                    <pre><code class="language-java" data-trim>
+.authorizeHttpRequests(auth -> auth
+    .requestMatchers("/api/auth/**").permitAll()
+    .anyRequest().authenticated()
+)
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>PasswordEncoder - BCrypt</h3>
+                    <p class="small-text">Encodage sécurisé des mots de passe</p>
+                    <pre><code class="language-java" data-trim data-line-numbers>
+@Bean
+public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+}
+                    </code></pre>
+                    <div class="two-columns small-text">
+                        <div>
+                            <h4 class="security">Avantages de BCrypt</h4>
+                            <ul>
+                                <li>Salt automatique et aléatoire</li>
+                                <li>Coût configurable (résistance brute force)</li>
+                                <li>Algorithme éprouvé et sécurisé</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>Exemple</h4>
+                            <pre><code class="language-plaintext" data-trim style="font-size: 0.4em;">
+Mot de passe: "password"
+
+BCrypt hash:
+$2a$10$N9qo8uLO...Vyyu31k.tw2
+│ │  │  └─ Hash (31 chars)
+│ │  └─ Salt (22 chars)
+│ └─ Coût (2^10 = 1024 itérations)
+└─ Version BCrypt
+                            </code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>CORS Configuration</h3>
+                    <p class="small-text">Cross-Origin Resource Sharing pour le frontend</p>
+                    <pre><code class="language-java" data-trim data-line-numbers="|4-5|8|11|14">
+@Bean
+public CorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
+
+    // Origines autorisées (dev + prod)
+    configuration.setAllowedOrigins(Arrays.asList(
+        "http://localhost:5173",  // Vite dev server
+        "http://localhost:8080"   // Production
+    ));
+
+    // Méthodes HTTP autorisées
+    configuration.setAllowedMethods(
+        Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS")
+    );
+
+    // Tous les headers autorisés
+    configuration.setAllowedHeaders(Arrays.asList("*"));
+
+    // Autoriser credentials (cookies, auth headers)
+    configuration.setAllowCredentials(true);
+
+    // Appliquer à toutes les routes
+    UrlBasedCorsConfigurationSource source =
+        new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+}
+                    </code></pre>
+                </section>
+            </section>
+
+            <!-- Partie 4: Utilisateurs et rôles -->
+            <section>
+                <section>
+                    <h2>4. Utilisateurs et Rôles</h2>
+                    <h3>Gestion des identités et permissions</h3>
+                </section>
+
+                <section>
+                    <h3>Modèle de données - User</h3>
+                    <pre><code class="language-java" data-trim data-line-numbers="|1-2|4-9|11-20|22-28">
+@Entity
+@Table(name = "users")
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true, length = 50)
+    private String username;
+
+    @JsonIgnore  // Ne jamais exposer le password !
+    @Column(nullable = false)
+    private String password;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+    }
+
+    // Relation Many-to-Many avec les rôles
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "user_roles",
+        joinColumns = @JoinColumn(name = "user_id"),
+        inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set&lt;Role&gt; roles = new HashSet&lt;&gt;();
+
+    // Relation One-to-Many avec les notes
+    @JsonIgnore
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private Set&lt;Note&gt; notes = new HashSet&lt;&gt;();
+}
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>Modèle de données - Role</h3>
+                    <pre><code class="language-java" data-trim data-line-numbers>
+@Entity
+@Table(name = "roles")
+public class Role {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    /**
+     * Convention Spring Security: préfixer par "ROLE_"
+     * Exemples: ROLE_USER, ROLE_ADMIN, ROLE_MODERATOR
+     */
+    @Column(nullable = false, unique = true, length = 50)
+    private String name;
+
+    // Constructeurs, getters, setters...
+}
+                    </code></pre>
+                    <div class="small-text">
+                        <p class="security"><strong>Important :</strong> Spring Security exige le préfixe "ROLE_"</p>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Schéma de base de données</h3>
+                    <pre><code class="language-sql" data-trim>
+┌─────────────────┐         ┌──────────────────┐         ┌─────────────────┐
+│     USERS       │         │   USER_ROLES     │         │     ROLES       │
+├─────────────────┤         ├──────────────────┤         ├─────────────────┤
+│ id (PK)         │◄───┐    │ user_id (FK)     │    ┌───►│ id (PK)         │
+│ username        │    └────┤ role_id (FK)     │────┘    │ name            │
+│ password        │         └──────────────────┘         └─────────────────┘
+│ created_at      │              (Table de jointure)
+└─────────────────┘
+
+Exemple de données:
+
+USERS:
+  id=1, username='admin', password='$2a$10$...'
+  id=2, username='user1', password='$2a$10$...'
+
+ROLES:
+  id=1, name='ROLE_ADMIN'
+  id=2, name='ROLE_USER'
+
+USER_ROLES:
+  user_id=1, role_id=1  → admin a ROLE_ADMIN
+  user_id=1, role_id=2  → admin a ROLE_USER
+  user_id=2, role_id=2  → user1 a ROLE_USER
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>UserDetailsService</h3>
+                    <p class="small-text">Interface Spring Security pour charger les utilisateurs</p>
+                    <pre><code class="language-java" data-trim data-line-numbers="|1|3-7|9-12|14-16|18-24">
+@Service
+public class UserDetailsServiceImpl implements UserDetailsService {
+    @Autowired
+    private UserRepository userRepository;
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserDetails loadUserByUsername(String username)
+            throws UsernameNotFoundException {
+
+        // 1. Rechercher l'utilisateur dans la BD
+        User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new UsernameNotFoundException(
+                "Utilisateur non trouvé: " + username
+            ));
+
+        // 2. Convertir les rôles en GrantedAuthority
+        Set&lt;GrantedAuthority&gt; authorities = user.getRoles().stream()
+            .map(role -> new SimpleGrantedAuthority(role.getName()))
+            .collect(Collectors.toSet());
+
+        // 3. Créer et retourner un objet UserDetails
+        return org.springframework.security.core.userdetails.User.builder()
+            .username(user.getUsername())
+            .password(user.getPassword())  // Déjà encodé en BCrypt
+            .authorities(authorities)      // ROLE_USER, ROLE_ADMIN...
+            .accountExpired(false)
+            .accountLocked(false)
+            .credentialsExpired(false)
+            .disabled(false)
+            .build();
+    }
+}
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>Contrôle d'accès basé sur les rôles</h3>
+                    <div class="small-text">
+                        <h4>Méthode 1: Configuration globale</h4>
+                        <pre><code class="language-java" data-trim>
+.authorizeHttpRequests(auth -> auth
+    .requestMatchers("/api/auth/**").permitAll()
+    .requestMatchers("/api/admin/**").hasRole("ADMIN")  // ROLE_ADMIN requis
+    .requestMatchers("/api/users/**").hasAnyRole("ADMIN", "MODERATOR")
+    .anyRequest().authenticated()
+)
+                        </code></pre>
+
+                        <h4>Méthode 2: Annotations sur les méthodes</h4>
+                        <pre><code class="language-java" data-trim>
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+
+    @PreAuthorize("hasRole('ADMIN')")  // Vérifié avant l'exécution
+    @GetMapping
+    public List&lt;User&gt; getAllUsers() {
+        return userService.findAll();
+    }
+
+    @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal.id")
+    @DeleteMapping("/{id}")
+    public void deleteUser(@PathVariable Long id) {
+        userService.delete(id);
+    }
+}
+                        </code></pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Initialisation des données</h3>
+                    <p class="small-text">CommandLineRunner pour créer les rôles et utilisateurs initiaux</p>
+                    <pre><code class="language-java" data-trim data-line-numbers="|3-10|12-21|23-32">
+@Bean
+public CommandLineRunner initData(
+    RoleRepository roleRepository,
+    UserRepository userRepository,
+    PasswordEncoder passwordEncoder
+) {
+    return args -> {
+        // Créer les rôles s'ils n'existent pas
+        Role roleUser = roleRepository.findByName("ROLE_USER")
+            .orElseGet(() -> roleRepository.save(new Role("ROLE_USER")));
+
+        Role roleAdmin = roleRepository.findByName("ROLE_ADMIN")
+            .orElseGet(() -> roleRepository.save(new Role("ROLE_ADMIN")));
+
+        // Créer un utilisateur admin
+        if (!userRepository.findByUsername("admin").isPresent()) {
+            User admin = new User();
+            admin.setUsername("admin");
+            admin.setPassword(passwordEncoder.encode("password"));
+            admin.setRoles(Set.of(roleUser, roleAdmin));  // Les 2 rôles
+            userRepository.save(admin);
+        }
+
+        // Créer un utilisateur simple
+        if (!userRepository.findByUsername("user1").isPresent()) {
+            User user = new User();
+            user.setUsername("user1");
+            user.setPassword(passwordEncoder.encode("password"));
+            user.setRoles(Set.of(roleUser));  // Seulement ROLE_USER
+            userRepository.save(user);
+        }
+    };
+}
+                    </code></pre>
+                </section>
+            </section>
+
+            <!-- Partie 5: Authentification JWT -->
+            <section>
+                <section>
+                    <h2>5. Authentification JWT</h2>
+                    <h3>JSON Web Tokens</h3>
+                </section>
+
+                <section>
+                    <h3>Qu'est-ce qu'un JWT ?</h3>
+                    <div class="architecture-diagram">
+                        <p>Token auto-contenu composé de 3 parties :</p>
+                        <pre style="font-size: 0.6em;"><code class="language-plaintext" data-trim>
+eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyMSIsImlhdCI6MTYzOTU2NzIwMCwiZXhwIjoxNjM5NjUzNjAwfQ.signature
+└─────── Header ──────┘ └────────────────── Payload ─────────────────────────┘ └─ Signature ─┘
+                        </code></pre>
+
+                        <div class="two-columns small-text" style="margin-top: 20px;">
+                            <div>
+                                <strong>Header</strong> (base64)
+                                <pre><code class="language-json">{
+  "alg": "HS512",
+  "typ": "JWT"
+}</code></pre>
+                            </div>
+                            <div>
+                                <strong>Payload</strong> (base64)
+                                <pre><code class="language-json">{
+  "sub": "user1",
+  "iat": 1639567200,
+  "exp": 1639653600
+}</code></pre>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 15px;" class="small-text">
+                            <strong>Signature</strong> = HMACSHA512(header + "." + payload, secret_key)
+                        </div>
+                    </div>
+                    <p class="small-text security">Le serveur peut valider l'intégrité sans accès à une base de données</p>
+                </section>
+
+                <section>
+                    <h3>JwtUtils.java - Génération</h3>
+                    <pre><code class="language-java" data-trim data-line-numbers="|1-8|10-15|17-26">
+@Component
+public class JwtUtils {
+    @Value("${jwt.secret}")
+    private String secret;  // Clé secrète (min 512 bits pour HS512)
+
+    @Value("${jwt.expiration}")
+    private Long expiration;  // Durée de validité (ex: 86400000 = 24h)
+
+    private SecretKey getSigningKey() {
+        // Conversion de la clé en SecretKey pour jjwt
+        return Keys.hmacShaKeyFor(
+            secret.getBytes(StandardCharsets.UTF_8)
+        );
+    }
+
+    public String generateToken(UserDetails userDetails) {
+        Map&lt;String, Object&gt; claims = new HashMap&lt;&gt;();
+        return Jwts.builder()
+            .claims(claims)                         // Claims personnalisés
+            .subject(userDetails.getUsername())     // Subject = username
+            .issuedAt(new Date())                   // Date d'émission
+            .expiration(new Date(
+                System.currentTimeMillis() + expiration
+            ))                                       // Date d'expiration
+            .signWith(getSigningKey())              // Signature HMAC-SHA512
+            .compact();                             // Construction finale
+    }
+}
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>JwtUtils.java - Validation</h3>
+                    <pre><code class="language-java" data-trim data-line-numbers="|1-8|10-18|20-24">
+// Extraction du username depuis le token
+public String getUsernameFromToken(String token) {
+    return getClaimFromToken(token, Claims::getSubject);
+}
+
+// Extraction d'un claim spécifique
+public &lt;T&gt; T getClaimFromToken(String token,
+                                Function&lt;Claims, T&gt; claimsResolver) {
+    final Claims claims = getAllClaimsFromToken(token);
+    return claimsResolver.apply(claims);
+}
+
+// Parse et valide le token (vérifie la signature)
+private Claims getAllClaimsFromToken(String token) {
+    return Jwts.parser()
+        .verifyWith(getSigningKey())    // Vérifie la signature
+        .build()
+        .parseSignedClaims(token)       // Parse et valide
+        .getPayload();                   // Retourne les claims
+}
+
+// Vérifie que le token est valide et non expiré
+public Boolean validateToken(String token, UserDetails userDetails) {
+    final String username = getUsernameFromToken(token);
+    return (username.equals(userDetails.getUsername())
+            && !isTokenExpired(token));
+}
+
+private Boolean isTokenExpired(String token) {
+    final Date expiration = getExpirationDateFromToken(token);
+    return expiration.before(new Date());
+}
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>JwtAuthenticationFilter</h3>
+                    <p class="small-text">Filtre personnalisé pour intercepter et valider les requêtes</p>
+                    <pre><code class="language-java" data-trim data-line-numbers="|1-2|4-8|10-16|18-29|31-36">
+@Component
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    @Autowired
+    private JwtUtils jwtUtils;
+
+    @Autowired
+    private UserDetailsServiceImpl userDetailsService;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain)
+            throws ServletException, IOException {
+        try {
+            // 1. Extraire le token JWT de l'en-tête Authorization
+            String jwt = parseJwt(request);  // "Bearer eyJhbG..."
+
+            // 2. Si un token est présent
+            if (jwt != null && jwtUtils.getUsernameFromToken(jwt) != null) {
+                String username = jwtUtils.getUsernameFromToken(jwt);
+
+                // 3. Charger les détails de l'utilisateur
+                UserDetails userDetails =
+                    userDetailsService.loadUserByUsername(username);
+
+                // 4. Valider le token
+                if (jwtUtils.validateToken(jwt, userDetails)) {
+                    // 5. Créer l'authentification Spring Security
+                    UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities()
+                        );
+
+                    // 6. Définir l'authentification dans le contexte
+                    SecurityContextHolder.getContext()
+                        .setAuthentication(authentication);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Cannot set user authentication: {}", e);
+        }
+
+        // 7. Continuer la chaîne de filtres
+        filterChain.doFilter(request, response);
+    }
+
+    private String parseJwt(HttpServletRequest request) {
+        String headerAuth = request.getHeader("Authorization");
+        if (StringUtils.hasText(headerAuth)
+                && headerAuth.startsWith("Bearer ")) {
+            return headerAuth.substring(7);  // Retirer "Bearer "
+        }
+        return null;
+    }
+}
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>Flux d'authentification JWT</h3>
+                    <pre class="small-text"><code class="language-plaintext" data-trim>
+┌─────────┐                  ┌──────────────────┐                  ┌──────────┐
+│ Client  │                  │  AuthController  │                  │ Database │
+└────┬────┘                  └────────┬─────────┘                  └─────┬────┘
+     │                                │                                   │
+     │ 1. POST /api/auth/login        │                                   │
+     │    {username, password}        │                                   │
+     ├───────────────────────────────►│                                   │
+     │                                │                                   │
+     │                                │ 2. AuthenticationManager          │
+     │                                │    .authenticate()                │
+     │                                │                                   │
+     │                                │ 3. UserDetailsService             │
+     │                                │    .loadUserByUsername()          │
+     │                                ├──────────────────────────────────►│
+     │                                │                                   │
+     │                                │ 4. User + roles                   │
+     │                                │◄──────────────────────────────────┤
+     │                                │                                   │
+     │                                │ 5. PasswordEncoder                │
+     │                                │    .matches(plainPassword,        │
+     │                                │              encodedPassword)     │
+     │                                │                                   │
+     │                                │ 6. JwtUtils                       │
+     │                                │    .generateToken()               │
+     │                                │                                   │
+     │ 7. {token, id, username,       │                                   │
+     │     roles}                     │                                   │
+     │◄───────────────────────────────┤                                   │
+     │                                │                                   │
+     │ 8. Stockage localStorage       │                                   │
+     │    token = "eyJhbGc..."        │                                   │
+     │                                │                                   │
+     │ 9. GET /api/notes              │                                   │
+     │    Authorization: Bearer ...   │                                   │
+     ├───────────────────────────────►│                                   │
+     │                                │                                   │
+     │                                │ 10. JwtAuthenticationFilter       │
+     │                                │     - Extrait token               │
+     │                                │     - Valide signature            │
+     │                                │     - Vérifie expiration          │
+     │                                │     - Charge UserDetails          │
+     │                                │     - Set SecurityContext         │
+     │                                │                                   │
+     │ 11. Données (si autorisé)      │                                   │
+     │◄───────────────────────────────┤                                   │
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>AuthController - Login</h3>
+                    <pre><code class="language-java" data-trim data-line-numbers="|1-4|6-11|13-15|17-20|22-28">
+@RestController
+@RequestMapping("/api/auth")
+@CrossOrigin(origins = "*", maxAge = 3600)
+public class AuthController {
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    @Autowired
+    private JwtUtils jwtUtils;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @PostMapping("/login")
+    public ResponseEntity&lt;?&gt; login(@Valid @RequestBody LoginRequest loginRequest) {
+
+        // 1. Authentifier via Spring Security
+        Authentication authentication = authenticationManager.authenticate(
+            new UsernamePasswordAuthenticationToken(
+                loginRequest.getUsername(),
+                loginRequest.getPassword()
+            )
+        );
+
+        // 2. Définir l'authentification dans le contexte
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // 3. Générer le token JWT
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        String jwt = jwtUtils.generateToken(userDetails);
+
+        // 4. Récupérer les infos complètes de l'utilisateur
+        User user = userRepository.findByUsername(userDetails.getUsername())
+            .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        // 5. Extraire les rôles
+        List&lt;String&gt; roles = userDetails.getAuthorities().stream()
+            .map(item -> item.getAuthority())
+            .collect(Collectors.toList());
+
+        // 6. Construire et retourner la réponse
+        LoginResponse response = new LoginResponse(
+            jwt,                    // Token JWT
+            user.getId(),          // ID utilisateur
+            user.getUsername(),    // Username
+            roles                  // Liste des rôles
+        );
+
+        return ResponseEntity.ok(response);
+    }
+}
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>DTOs - Data Transfer Objects</h3>
+                    <div class="two-columns small-text">
+                        <div>
+                            <strong>LoginRequest.java</strong>
+                            <pre><code class="language-java" data-trim>
+public class LoginRequest {
+    @NotBlank
+    private String username;
+
+    @NotBlank
+    private String password;
+
+    // Getters, setters
+}
+                            </code></pre>
+                        </div>
+                        <div>
+                            <strong>LoginResponse.java</strong>
+                            <pre><code class="language-java" data-trim>
+public class LoginResponse {
+    private String token;
+    private String type = "Bearer";
+    private Long id;
+    private String username;
+    private List&lt;String&gt; roles;
+
+    // Constructeur, getters, setters
+}
+                            </code></pre>
+                        </div>
+                    </div>
+                    <p style="margin-top: 20px;">Exemple de réponse JSON :</p>
+                    <pre><code class="language-json" data-trim>
+{
+  "token": "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ1c2VyMSIsImlhdCI6MTYzOTU2...",
+  "type": "Bearer",
+  "id": 2,
+  "username": "user1",
+  "roles": ["ROLE_USER"]
+}
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>Configuration application.properties</h3>
+                    <pre><code class="language-properties" data-trim>
+# JWT Configuration
+# Clé secrète pour signer les tokens (min 512 bits pour HS512)
+jwt.secret=myVerySecretKeyThatIsAtLeast512BitsLongForHS512Algorithm
+
+# Durée de validité du token en millisecondes
+# 86400000 ms = 24 heures
+jwt.expiration=86400000
+
+# Spring Security
+spring.security.user.name=admin
+spring.security.user.password=admin
+                    </code></pre>
+                    <div class="small-text">
+                        <p class="vulnerability"><strong>⚠️ Important en production :</strong></p>
+                        <ul>
+                            <li>Utiliser des variables d'environnement pour les secrets</li>
+                            <li>Générer une clé aléatoire forte (512+ bits)</li>
+                            <li>Adapter la durée d'expiration selon le contexte</li>
+                        </ul>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Partie 6: Intégration Frontend -->
+            <section>
+                <section>
+                    <h2>6. Intégration Frontend</h2>
+                    <h3>Vue.js + Pinia + Axios</h3>
+                </section>
+
+                <section>
+                    <h3>Store Pinia - Auth</h3>
+                    <pre><code class="language-javascript" data-trim data-line-numbers="|1-5|7-10|12-24|26-35|37-43">
+// stores/auth.js
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import axios from 'axios'
+
+export const useAuthStore = defineStore('auth', () => {
+  // État
+  const token = ref(localStorage.getItem('token') || null)
+  const user = ref(JSON.parse(localStorage.getItem('user') || 'null'))
+
+  // Getters
+  const isAuthenticated = computed(() => !!token.value)
+  const isAdmin = computed(() => {
+    return user.value?.roles?.includes('ROLE_ADMIN') || false
+  })
+
+  // Action de connexion
+  async function login(username, password) {
+    try {
+      const response = await axios.post('/api/auth/login', {
+        username,
+        password
+      })
+
+      // Sauvegarder token et infos utilisateur
+      token.value = response.data.token
+      user.value = {
+        id: response.data.id,
+        username: response.data.username,
+        roles: response.data.roles
+      }
+
+      // Persister dans localStorage
+      localStorage.setItem('token', token.value)
+      localStorage.setItem('user', JSON.stringify(user.value))
+
+      // Configurer header Authorization pour toutes les futures requêtes
+      axios.defaults.headers.common['Authorization'] =
+        `Bearer ${token.value}`
+
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  }
+
+  // Action de déconnexion
+  function logout() {
+    token.value = null
+    user.value = null
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    delete axios.defaults.headers.common['Authorization']
+  }
+
+  return { token, user, isAuthenticated, isAdmin, login, logout }
+})
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>Initialisation - Intercepteur Axios</h3>
+                    <pre><code class="language-javascript" data-trim data-line-numbers="|1-5|7-17">
+// Dans le store auth
+function initializeAuth() {
+  // Restaurer le token si présent
+  if (token.value) {
+    axios.defaults.headers.common['Authorization'] =
+      `Bearer ${token.value}`
+  }
+
+  // Intercepteur pour gérer les erreurs 401
+  axios.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        // Token expiré ou invalide - déconnexion auto
+        logout()
+        window.location.href = '/login'
+      }
+      return Promise.reject(error)
+    }
+  )
+}
+
+// Appeler à l'initialisation du store
+initializeAuth()
+                    </code></pre>
+                    <p class="small-text security">Gestion automatique de l'expiration du token</p>
+                </section>
+
+                <section>
+                    <h3>Composant Login Vue</h3>
+                    <pre><code class="language-vue" data-trim data-line-numbers="|1-12|14-25">
+&lt;template&gt;
+  &lt;q-card class="login-card"&gt;
+    &lt;q-form @submit="handleLogin"&gt;
+      &lt;q-input v-model="username" label="Nom d'utilisateur" /&gt;
+      &lt;q-input v-model="password" label="Mot de passe" type="password" /&gt;
+      &lt;q-btn type="submit" label="Se connecter" :loading="loading" /&gt;
+    &lt;/q-form&gt;
+  &lt;/q-card&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+const router = useRouter()
+const authStore = useAuthStore()
+const username = ref('')
+const password = ref('')
+const loading = ref(false)
+
+async function handleLogin() {
+  loading.value = true
+  try {
+    await authStore.login(username.value, password.value)
+    router.push('/')  // Redirection vers la page principale
+  } catch (error) {
+    // Afficher message d'erreur
+    console.error('Erreur de connexion:', error)
+  } finally {
+    loading.value = false
+  }
+}
+&lt;/script&gt;
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>Router - Guards de navigation</h3>
+                    <pre><code class="language-javascript" data-trim data-line-numbers="|1-14|16-30">
+// router/index.js
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+
+const router = createRouter({
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes: [
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/views/LoginView.vue'),
+      meta: { requiresAuth: false }
+    },
+    {
+      path: '/',
+      name: 'notes',
+      component: () => import('@/views/NotesView.vue'),
+      meta: { requiresAuth: true }  // Route protégée
+    },
+    {
+      path: '/users',
+      name: 'users',
+      component: () => import('@/views/UsersView.vue'),
+      meta: {
+        requiresAuth: true,
+        requiresAdmin: true  // Nécessite ROLE_ADMIN
+      }
+    }
+  ]
+})
+
+// Guard global avant chaque navigation
+router.beforeEach((to, from, next) => {
+  const authStore = useAuthStore()
+
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    // Route protégée et utilisateur non connecté
+    next('/login')
+  } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    // Route admin et utilisateur sans droits
+    next('/')
+  } else if (to.path === '/login' && authStore.isAuthenticated) {
+    // Utilisateur connecté essaie d'accéder au login
+    next('/')
+  } else {
+    next()  // Autoriser la navigation
+  }
+})
+
+export default router
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h3>Exemple d'appel API protégé</h3>
+                    <pre><code class="language-javascript" data-trim data-line-numbers="|1-10|12-17">
+// stores/notes.js
+import axios from 'axios'
+import { defineStore } from 'pinia'
+
+export const useNotesStore = defineStore('notes', () => {
+  const notes = ref([])
+
+  async function fetchNotes() {
+    try {
+      // Le header Authorization est automatiquement ajouté
+      // par l'intercepteur axios configuré dans le store auth
+      const response = await axios.get('/api/notes')
+      notes.value = response.data
+    } catch (error) {
+      console.error('Erreur lors du chargement des notes:', error)
+      throw error
+    }
+  }
+
+  async function createNote(content) {
+    const response = await axios.post('/api/notes', { content })
+    notes.value.push(response.data)
+    return response.data
+  }
+
+  async function deleteNote(id) {
+    await axios.delete(`/api/notes/${id}`)
+    notes.value = notes.value.filter(note => note.id !== id)
+  }
+
+  return { notes, fetchNotes, createNote, deleteNote }
+})
+                    </code></pre>
+                    <p class="small-text">Le token JWT est automatiquement inclus dans toutes les requêtes</p>
+                </section>
+
+                <section>
+                    <h3>Cycle complet Frontend → Backend</h3>
+                    <pre class="small-text"><code class="language-plaintext" data-trim>
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          LOGIN FLOW                                       │
+└──────────────────────────────────────────────────────────────────────────┘
+
+[LoginView.vue] → handleLogin()
+        ↓
+[authStore] → login(username, password)
+        ↓
+[axios] → POST /api/auth/login
+        ↓
+[Backend] → AuthController.login()
+        ↓ AuthenticationManager.authenticate()
+        ↓ UserDetailsService.loadUserByUsername()
+        ↓ PasswordEncoder.matches()
+        ↓ JwtUtils.generateToken()
+        ↓
+[axios] ← { token, id, username, roles }
+        ↓
+[authStore] → localStorage.setItem('token', ...)
+            → axios.defaults.headers.common['Authorization'] = 'Bearer ...'
+        ↓
+[router] → redirect to '/'
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        API CALL FLOW                                      │
+└──────────────────────────────────────────────────────────────────────────┘
+
+[NotesView.vue] → mounted()
+        ↓
+[notesStore] → fetchNotes()
+        ↓
+[axios] → GET /api/notes
+          Header: Authorization: Bearer eyJhbGc...
+        ↓
+[Backend] → JwtAuthenticationFilter.doFilterInternal()
+        ↓ parseJwt() → extract token
+        ↓ jwtUtils.getUsernameFromToken()
+        ↓ userDetailsService.loadUserByUsername()
+        ↓ jwtUtils.validateToken() → verify signature + expiration
+        ↓ SecurityContextHolder.setAuthentication()
+        ↓
+[Backend] → NoteController.getNotes()
+        ↓ @PreAuthorize check
+        ↓ noteService.findByUser()
+        ↓
+[axios] ← [ { id: 1, content: "...", ... }, ... ]
+        ↓
+[notesStore] → notes.value = response.data
+        ↓
+[NotesView.vue] → affichage des notes
+                    </code></pre>
+                </section>
+            </section>
+
+            <!-- Partie 7: Bonnes pratiques et sécurité -->
+            <section>
+                <section>
+                    <h2>7. Bonnes pratiques de sécurité</h2>
+                </section>
+
+                <section>
+                    <h3>Sécurité des tokens JWT</h3>
+                    <div class="small-text">
+                        <div class="flow-step">
+                            <span class="security">✓</span> <strong>Utiliser HTTPS en production</strong><br/>
+                            Empêche l'interception du token en transit
+                        </div>
+                        <div class="flow-step">
+                            <span class="security">✓</span> <strong>Clé secrète forte (512+ bits)</strong><br/>
+                            Rend le brute-force de la signature impossible
+                        </div>
+                        <div class="flow-step">
+                            <span class="security">✓</span> <strong>Durée d'expiration appropriée</strong><br/>
+                            24h pour une webapp, 1h pour une API sensible
+                        </div>
+                        <div class="flow-step">
+                            <span class="security">✓</span> <strong>Refresh tokens pour renouvellement</strong><br/>
+                            Éviter de redemander le mot de passe fréquemment
+                        </div>
+                        <div class="flow-step">
+                            <span class="vulnerability">✗</span> <strong>Ne pas stocker de données sensibles dans le JWT</strong><br/>
+                            Le payload est décodable (base64) → pas de mots de passe !
+                        </div>
+                        <div class="flow-step">
+                            <span class="vulnerability">✗</span> <strong>Ne pas utiliser localStorage si XSS possible</strong><br/>
+                            Privilégier httpOnly cookies si nécessaire
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Protection des mots de passe</h3>
+                    <div class="two-columns small-text">
+                        <div>
+                            <h4 class="security">Backend</h4>
+                            <pre><code class="language-java" data-trim>
+// ✓ Toujours hasher avec BCrypt
+String hashedPassword =
+  passwordEncoder.encode(plainPassword);
+
+// ✓ Ne jamais exposer le password
+@JsonIgnore
+private String password;
+
+// ✓ Valider la complexité
+@Size(min = 8, message = "8 caractères min")
+@Pattern(regexp = "^(?=.*[A-Z])(?=.*[a-z])...")
+private String password;
+                            </code></pre>
+                        </div>
+                        <div>
+                            <h4 class="security">Frontend</h4>
+                            <pre><code class="language-javascript" data-trim>
+// ✓ HTTPS uniquement
+// ✓ Ne jamais logger le password
+console.log(username)  // OK
+console.log(password)  // ✗ NON !
+
+// ✓ Nettoyer après login
+password.value = ''
+
+// ✓ Type "password" sur input
+&lt;input type="password" /&gt;
+                            </code></pre>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Validation et gestion d'erreurs</h3>
+                    <pre><code class="language-java" data-trim data-line-numbers>
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(UsernameNotFoundException.class)
+    public ResponseEntity&lt;?&gt; handleUserNotFound(UsernameNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(new ErrorResponse("Identifiants invalides"));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity&lt;?&gt; handleBadCredentials(BadCredentialsException ex) {
+        // Ne pas révéler si c'est le username ou le password qui est faux
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(new ErrorResponse("Identifiants invalides"));
+    }
+
+    @ExceptionHandler(JwtException.class)
+    public ResponseEntity&lt;?&gt; handleJwtException(JwtException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(new ErrorResponse("Token invalide ou expiré"));
+    }
+}
+                    </code></pre>
+                    <p class="small-text security">Messages d'erreur génériques pour éviter l'énumération d'utilisateurs</p>
+                </section>
+
+                <section>
+                    <h3>Tests de sécurité</h3>
+                    <div class="small-text">
+                        <h4>Scénarios à tester</h4>
+                        <ul>
+                            <li>✓ Accès aux endpoints protégés sans token → 401</li>
+                            <li>✓ Token expiré → 401 + déconnexion auto</li>
+                            <li>✓ Token manipulé (signature invalide) → 401</li>
+                            <li>✓ Accès admin sans ROLE_ADMIN → 403</li>
+                            <li>✓ CORS depuis origine non autorisée → Bloqué</li>
+                            <li>✓ Injection SQL dans le login → Échec</li>
+                        </ul>
+
+                        <h4 style="margin-top: 20px;">Outils utiles</h4>
+                        <ul>
+                            <li><strong>OWASP ZAP</strong> : Scanner de vulnérabilités</li>
+                            <li><strong>Postman</strong> : Tests d'API manuels</li>
+                            <li><strong>JUnit + MockMvc</strong> : Tests unitaires Spring Security</li>
+                            <li><strong>jwt.io</strong> : Debugger de tokens JWT</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Checklist de sécurité</h3>
+                    <div class="two-columns small-text">
+                        <div>
+                            <h4 class="security">Backend</h4>
+                            <ul>
+                                <li>☑ BCrypt pour les mots de passe</li>
+                                <li>☑ JWT avec signature forte</li>
+                                <li>☑ CORS configuré correctement</li>
+                                <li>☑ HTTPS en production</li>
+                                <li>☑ Validation des entrées</li>
+                                <li>☑ @PreAuthorize sur méthodes sensibles</li>
+                                <li>☑ Logs de sécurité (tentatives de connexion)</li>
+                                <li>☑ Rate limiting (anti brute force)</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="security">Frontend</h4>
+                            <ul>
+                                <li>☑ HTTPS uniquement</li>
+                                <li>☑ Pas de secrets en clair (tokens dans env)</li>
+                                <li>☑ Validation côté client</li>
+                                <li>☑ Guards de navigation</li>
+                                <li>☑ Gestion expiration token</li>
+                                <li>☑ Nettoyage à la déconnexion</li>
+                                <li>☑ Pas de console.log de données sensibles</li>
+                                <li>☑ CSP headers (Content Security Policy)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Conclusion -->
+            <section>
+                <section>
+                    <h2>Récapitulatif</h2>
+                    <div class="architecture-diagram small-text">
+                        <h4>Architecture complète de l'application</h4>
+                        <pre style="font-size: 0.55em;"><code class="language-plaintext" data-trim>
+┌────────────────────────────────────────────────────────────────────────┐
+│                           VUE.JS FRONTEND                              │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐            │
+│  │ LoginView    │───►│  authStore   │───►│    axios     │            │
+│  └──────────────┘    │  (Pinia)     │    │ + interceptor│            │
+│  ┌──────────────┐    └──────────────┘    └──────┬───────┘            │
+│  │ NotesView    │◄─────────┐                    │                     │
+│  └──────────────┘          │                    │                     │
+│  ┌──────────────┐    ┌─────┴──────┐             │                     │
+│  │ Router       │    │ notesStore │             │                     │
+│  │ + Guards     │    └────────────┘             │                     │
+│  └──────────────┘                               │                     │
+└────────────────────────────────────────────────┼─────────────────────┘
+                                                  │ HTTP + JWT
+                              ┌───────────────────┼───────────────────┐
+                              │                   │                   │
+┌─────────────────────────────┼───────────────────▼─────────────────────────┐
+│                             │        SPRING BOOT BACKEND                   │
+│  ┌──────────────────────────▼──────────────────────────────────┐          │
+│  │              Spring Security Filter Chain                    │          │
+│  │  ┌────────────────────────────────────────────────────────┐ │          │
+│  │  │ 1. JwtAuthenticationFilter                             │ │          │
+│  │  │    - Extract JWT                                       │ │          │
+│  │  │    - Validate signature + expiration                   │ │          │
+│  │  │    - Load UserDetails                                  │ │          │
+│  │  │    - Set SecurityContext                               │ │          │
+│  │  └────────────────────────────────────────────────────────┘ │          │
+│  │  ┌────────────────────────────────────────────────────────┐ │          │
+│  │  │ 2. FilterSecurityInterceptor                           │ │          │
+│  │  │    - Check @PreAuthorize                               │ │          │
+│  │  │    - Verify roles (ROLE_USER, ROLE_ADMIN)              │ │          │
+│  │  └────────────────────────────────────────────────────────┘ │          │
+│  └──────────────────────────────────────────────────────────────┘          │
+│                                    │                                        │
+│  ┌─────────────────┐  ┌───────────▼──────────┐  ┌──────────────────────┐ │
+│  │ AuthController  │  │  NoteController      │  │  UserController      │ │
+│  │  /api/auth/**   │  │  /api/notes/**       │  │  /api/users/**       │ │
+│  │  (public)       │  │  (authenticated)     │  │  (ROLE_ADMIN)        │ │
+│  └────────┬────────┘  └──────────┬───────────┘  └─────────┬────────────┘ │
+│           │                      │                         │              │
+│  ┌────────▼─────────┐  ┌─────────▼────────┐  ┌───────────▼────────────┐ │
+│  │ AuthenticationMgr│  │  NoteService     │  │  UserService          │ │
+│  │ JwtUtils         │  └──────────┬───────┘  └───────────┬────────────┘ │
+│  │ UserDetailsImpl  │             │                      │              │
+│  └──────────────────┘             │                      │              │
+│                                   │                      │              │
+│  ┌────────────────────────────────▼──────────────────────▼────────────┐ │
+│  │                        JPA REPOSITORIES                             │ │
+│  │           NoteRepository  UserRepository  RoleRepository            │ │
+│  └────────────────────────────────┬──────────────────────────────────────┘ │
+│                                   │                                        │
+└───────────────────────────────────┼────────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼────────────────────────────────────────┐
+│                          DATABASE (H2 / PostgreSQL)                         │
+│  ┌─────────┐    ┌──────────────┐    ┌────────┐    ┌─────────┐             │
+│  │  users  │───►│ user_roles   │◄───│ roles  │    │  notes  │             │
+│  └─────────┘    └──────────────┘    └────────┘    └─────────┘             │
+└─────────────────────────────────────────────────────────────────────────────┘
+                        </code></pre>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Points clés à retenir</h2>
+                    <ol class="small-text">
+                        <li><strong>Authentification vs Autorisation</strong> : Deux concepts distincts</li>
+                        <li><strong>JWT = Stateless</strong> : Pas de sessions serveur, scalabilité facilitée</li>
+                        <li><strong>Spring Security = Filtres</strong> : Chaîne de filtres pour chaque requête</li>
+                        <li><strong>BCrypt obligatoire</strong> : Jamais de mots de passe en clair</li>
+                        <li><strong>Rôles préfixés "ROLE_"</strong> : Convention Spring Security</li>
+                        <li><strong>CORS nécessaire</strong> : Pour autoriser le frontend sur un autre port</li>
+                        <li><strong>Guards frontend</strong> : Protection côté client (confort UX)</li>
+                        <li><strong>Sécurité en profondeur</strong> : Backend ET frontend</li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h2>Ressources et documentation</h2>
+                    <div class="small-text">
+                        <h4>Documentation officielle</h4>
+                        <ul>
+                            <li><strong>Spring Security</strong> : https://spring.io/projects/spring-security</li>
+                            <li><strong>JWT (jjwt)</strong> : https://github.com/jwtk/jjwt</li>
+                            <li><strong>Vue Router</strong> : https://router.vuejs.org/</li>
+                            <li><strong>Pinia</strong> : https://pinia.vuejs.org/</li>
+                        </ul>
+
+                        <h4>Sécurité web</h4>
+                        <ul>
+                            <li><strong>OWASP Top 10</strong> : https://owasp.org/Top10/</li>
+                            <li><strong>JWT Best Practices</strong> : https://tools.ietf.org/html/rfc8725</li>
+                            <li><strong>MDN Web Security</strong> : https://developer.mozilla.org/en-US/docs/Web/Security</li>
+                        </ul>
+
+                        <h4>Outils</h4>
+                        <ul>
+                            <li><strong>jwt.io</strong> : Debugger JWT en ligne</li>
+                            <li><strong>Postman</strong> : Tests d'API REST</li>
+                            <li><strong>OWASP ZAP</strong> : Scanner de vulnérabilités</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Questions ?</h2>
+                    <br/>
+                    <p>Merci de votre attention</p>
+                    <br/><br/>
+                    <div class="small-text">
+                        <p>Cette présentation couvre :</p>
+                        <ul>
+                            <li>Les concepts fondamentaux de la sécurité web</li>
+                            <li>L'architecture et la configuration de Spring Security</li>
+                            <li>Le système de rôles et permissions</li>
+                            <li>L'authentification JWT stateless</li>
+                            <li>L'intégration frontend Vue.js</li>
+                            <li>Les bonnes pratiques de sécurité</li>
+                        </ul>
+                    </div>
+                </section>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/plugin/notes/notes.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/plugin/markdown/markdown.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.0.4/plugin/highlight/highlight.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: true,
+            transition: 'slide',
+            plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ],
+            width: 1280,
+            height: 720,
+            margin: 0.04,
+            minScale: 0.2,
+            maxScale: 2.0
+        });
+    </script>
+</body>
+</html>

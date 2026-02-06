@@ -3,6 +3,7 @@ package com.demo.notes.controller;
 import com.demo.notes.dto.ErrorResponse;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.web.servlet.error.ErrorController;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,10 +12,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Contrôleur personnalisé pour gérer les erreurs.
- * 
+ *
  * Remplace le contrôleur d'erreur par défaut de Spring Boot
  * pour fournir des messages d'erreur personnalisés.
  */
+@Slf4j
 @RestController
 public class CustomErrorController implements ErrorController {
 
@@ -28,10 +30,7 @@ public class CustomErrorController implements ErrorController {
         String requestURI = request.getRequestURI();
 
         // Debug logging
-        System.out.println("=== CustomErrorController DEBUG ===");
-        System.out.println("Error Status: " + status);
-        System.out.println("Request URI: " + requestURI);
-        System.out.println("Referer: " + referer);
+        log.debug("Error Status: {}, URI: {}, Referer: {}", status, requestURI, referer);
 
         String errorMessage;
         HttpStatus httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -44,10 +43,10 @@ public class CustomErrorController implements ErrorController {
             if (statusCode == 401) {
                 if (referer != null && referer.contains("/login")) {
                     errorMessage = "Nom d'utilisateur ou mot de passe incorrect";
-                    System.out.println("Using login-specific error message");
+                    log.info("Using login-specific error message");
                 } else {
                     errorMessage = "Authentification requise pour accéder à cette ressource";
-                    System.out.println("Using generic auth error message");
+                    log.info("Using generic auth error message");
                 }
             } else if (statusCode == 403) {
                 errorMessage = "Accès refusé";
@@ -62,8 +61,7 @@ public class CustomErrorController implements ErrorController {
             errorMessage = "Une erreur s'est produite";
         }
 
-        System.out.println("Final error message: " + errorMessage);
-        System.out.println("====================================");
+        log.info("Final error message: {}", errorMessage);
 
         ErrorResponse errorResponse = new ErrorResponse(
                 httpStatus.getReasonPhrase(),

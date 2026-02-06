@@ -43,3 +43,11 @@ frontend/.vite/
 # Temporary files
 *.tmp
 *.bak
+
+# Testing
+coverage/
+
+# Environment variables
+.env
+.env.*
+!.env.example
